@@ -14,7 +14,13 @@ public class MainWindow {
     private JButton btnSearch;
     private JProgressBar progressBar1;
     private JButton btnImport;
+    private JComboBox comboBox1;
+    private JTextField tgSearch;
     private JLabel label1;
+
+    private int searchType = 0;
+    private boolean fuzzySearch = false;
+    String searchKey = "";
 
     public MainWindow() {
 
@@ -66,7 +72,38 @@ public class MainWindow {
                 }
             }
         });
+
+        comboBox1.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                searchType = comboBox1.getSelectedIndex();
+                System.out.println("searchType: " + searchType);
+            }
+        });
+
+        comboBox1.setSelectedIndex(0);
+
+        cbFuzzy.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                fuzzySearch = cbFuzzy.isSelected();
+                System.out.println("fuzzySearch: " + fuzzySearch);
+            }
+        });
+
+        tgSearch.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                searchKey = tgSearch.getText();
+                System.out.println("searchKey: " + searchKey);
+            }
+        });
+
+        // 注入现代感十足的灰色占位提示词（用户一开始输入，它就会自动消失）
+        tgSearch.putClientProperty("JTextField.placeholderText", "请输入检索关键词...");
     }
+
+
 
     public static void main(String[] args) {
 
@@ -75,6 +112,7 @@ public class MainWindow {
             FlatIntelliJLaf.setup();
             // 2. 注入全局样式：大圆角与精致字体
             UIManager.put("Component.arc", 12);
+            UIManager.put("ComboBox.arc", 12);
             UIManager.put("Button.arc", 16);
             UIManager.put("defaultFont", new Font("Microsoft YaHei UI", Font.PLAIN, 14));
 
@@ -82,14 +120,11 @@ public class MainWindow {
             UIManager.put("ProgressBar.arc", 12);
             // 2. 强制规定它的最小高度（比如高度改为 8 或 12 像素）
             UIManager.put("ProgressBar.horizontalSize", new Dimension(146, 12));
-
             // 1. 按钮正常状态下的边框颜色（比如改成清爽的科技蓝，RGB: 52, 152, 219）
             UIManager.put("Button.startBorderColor", new Color(255, 155, 233));
             UIManager.put("Button.endBorderColor", new Color(255, 155, 233));
-
             // 2. 鼠标悬浮在按钮上（Hover）时的边框颜色（稍微加深一点）
             UIManager.put("Button.hoverBorderColor", new Color(255, 103, 209)); // 末尾100是半透明度
-
             // 3. 按钮被点击选中（Focused）时外圈的呼吸光环颜色
             UIManager.put("Component.focusColor", new Color(255, 155, 233, 100)); // 末尾100是半透明度
 
@@ -98,6 +133,8 @@ public class MainWindow {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+
 
         JFrame frame = new JFrame();
         frame.setContentPane(new MainWindow().mainPanel);
