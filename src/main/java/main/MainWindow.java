@@ -3,8 +3,6 @@ package main;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,11 +16,8 @@ import server.SimpleDataServer;
 
 public class MainWindow {
 
-  static SimpleDataServer server;
-  static HttpDataClient client;
   public List<Integer> dataList = new ArrayList<>();
   // 基础业务变量
-  private String searchKey = "";
   private int searchType = 0;
   /*
    * 排序类型
@@ -32,6 +27,7 @@ public class MainWindow {
    */
   private boolean fuzzySearch = false;
   private int port = 60001;
+  private boolean isServerRunning = false;
   // UI 组件（确保这些变量名与你的 .form 界面文件对齐）
   private JPanel mainPanel;
   private JCheckBox cbFuzzy;
@@ -43,80 +39,78 @@ public class MainWindow {
   private JTextArea logArea;
   private JTextField tfPort;
   private JButton btnSort;
-  private JLabel label1;
 
   public MainWindow() {
 
+    if (progressBar1 != null) {
+      progressBar1.setOpaque(true);
+      progressBar1.setBorderPainted(false);
+      progressBar1.setBackground(new Color(248, 242, 246)); // 淡灰粉底色
+      progressBar1.setForeground(new Color(255, 155, 233)); // 樱花粉前景色
+    }
+
     // --- 1. 搜索按钮监听 ---
     btnSearch.addActionListener(
-        new ActionListener() {
-          @Override
-          public void actionPerformed(ActionEvent e) {
-            if (dataList.isEmpty()) {
-              appendLog("[WARN] 数据源为空！请先排序。");
-              return;
-            }
+        _ -> {
+          if (dataList.isEmpty()) {
+            appendLog("[WARN] 数据源为空！请先排序。");
+            return;
+          }
 
-            // 1. 获取输入框的文本
-            String searchKey = tgSearch.getText().trim();
+          // 1. 获取输入框的文本
+          String searchKey = tgSearch.getText().trim();
 
-            if (searchKey.isEmpty()) {
-              appendLog("[WARN] 检索关键词不能为空！");
-              return;
-            }
+          if (searchKey.isEmpty()) {
+            appendLog("[WARN] 检索关键词不能为空！");
+            return;
+          }
 
-            // 2. 界面状态即时反馈
-            if (progressBar1 != null) progressBar1.setValue(0);
-            appendLog(
-                String.format(
-                    "[INFO] 开始检索. 模式: %s, 关键词: %s", fuzzySearch ? "模糊" : "精确", searchKey));
+          // 2. 界面状态即时反馈
+          if (progressBar1 != null) progressBar1.setValue(0);
+          appendLog(
+              String.format("[INFO] 开始检索. 模式: %s, 关键词: %s", fuzzySearch ? "模糊" : "精确", searchKey));
 
-            // 3. 开启后台异步线程，防止搜索和解析数据时界面假死
-            new Thread(
-                    () -> {
-                      SearchResult result;
+          // 3. 开启后台异步线程，防止搜索和解析数据时界面假死
+          new Thread(
+                  () -> {
+                    SearchResult result;
 
-                      try {
-                        if (fuzzySearch) {
-                          FuzzySearchService fuzzySearchService = new FuzzySearchService();
-                          fuzzySearchService.setData(dataList);
-                          result = fuzzySearchService.fuzzySearch(Integer.parseInt(searchKey));
+                    try {
+                      if (fuzzySearch) {
+                        FuzzySearchService fuzzySearchService = new FuzzySearchService();
+                        fuzzySearchService.setData(dataList);
+                        result = fuzzySearchService.fuzzySearch(Integer.parseInt(searchKey));
 
-                        } else {
-                          FuzzySearchService fuzzySearchService = new FuzzySearchService();
-                          fuzzySearchService.setData(dataList);
-                          result = fuzzySearchService.exactSearch(Integer.parseInt(searchKey));
-                        }
-
-                      } catch (NumberFormatException ex) {
-                        result = SearchResult.error("请输入有效的整数关键词！");
-                      } catch (Exception ex) {
-                        result = SearchResult.error("检索中途出现未知异常: " + ex.getMessage());
+                      } else {
+                        FuzzySearchService fuzzySearchService = new FuzzySearchService();
+                        fuzzySearchService.setData(dataList);
+                        result = fuzzySearchService.exactSearch(Integer.parseInt(searchKey));
                       }
 
-                      // 4. 🔥【UI 线程安全投递】将刚才算好的 SearchResult 送回主界面展示
-                      final SearchResult finalResult = result;
-                      SwingUtilities.invokeLater(
-                          () -> {
-                            // 通过重写好的 toString() 或者 getDetail() 将唯美排版打印出来
-                            appendLog(finalResult.getDetail());
+                    } catch (NumberFormatException ex) {
+                      result = SearchResult.error("请输入有效的整数关键词！");
+                    } catch (Exception ex) {
+                      result = SearchResult.error("检索中途出现未知异常: " + ex.getMessage());
+                    }
 
-                            if (progressBar1 != null) progressBar1.setValue(100);
+                    // 4. 🔥【UI 线程安全投递】将刚才算好的 SearchResult 送回主界面展示
+                    final SearchResult finalResult = result;
+                    SwingUtilities.invokeLater(
+                        () -> {
+                          // 通过重写好的 toString() 或者 getDetail() 将唯美排版打印出来
+                          appendLog(finalResult.getDetail());
 
-                            if (label1 != null) {
-                              label1.setText(finalResult.isFound() ? "检索成功" : "未找到匹配项");
-                            }
-                          });
-                    })
-                .start(); // 启动线程！
-          }
+                          if (progressBar1 != null) progressBar1.setValue(100);
+                        });
+                  })
+              .start(); // 启动线程！
         });
 
     // --- 2. 导入按钮监听 ---
     btnImport.addActionListener(
-        new ActionListener() {
-          @Override
-          public void actionPerformed(ActionEvent e) {
+        _ -> {
+          if (isServerRunning) appendLog("[WARN] 服务器已运行！。");
+          else {
             // 🛡️ 1. 安全提取并校验端口号，彻底解决不敲回车不生效和乱输入崩溃的问题
             int currentPort;
             try {
@@ -149,7 +143,6 @@ public class MainWindow {
               String filePath = selectedFile.getAbsolutePath();
 
               appendLog("[INFO] 成功选择文件: " + filePath);
-              if (label1 != null) label1.setText("正在解析数据...");
 
               // 开启后台线程异步启动服务器
               new Thread(
@@ -163,11 +156,8 @@ public class MainWindow {
                           server.serverStart(filePath, port);
 
                           updateProgressSmoothly(100);
-
-                          SwingUtilities.invokeLater(
-                              () -> {
-                                appendLog("[SUCCESS] 数据文件导入成功，服务器已就绪。");
-                              });
+                          isServerRunning = true;
+                          SwingUtilities.invokeLater(() -> appendLog("[SUCCESS] 数据文件导入成功，服务器已就绪。"));
 
                         } catch (Exception ex) {
                           SwingUtilities.invokeLater(
@@ -187,23 +177,17 @@ public class MainWindow {
 
     // --- 3. 下拉框监听 ---
     comboBox1.addActionListener(
-        new ActionListener() {
-          @Override
-          public void actionPerformed(ActionEvent e) {
-            searchType = comboBox1.getSelectedIndex();
-            appendLog("[CONFIG] 搜索类型切换为: " + searchType);
-          }
+        _ -> {
+          searchType = comboBox1.getSelectedIndex();
+          appendLog("[CONFIG] 搜索类型切换为: " + searchType);
         });
     comboBox1.setSelectedIndex(0);
 
     // --- 4. 模糊勾选框监听 ---
     cbFuzzy.addActionListener(
-        new ActionListener() {
-          @Override
-          public void actionPerformed(ActionEvent e) {
-            fuzzySearch = cbFuzzy.isSelected();
-            appendLog("[CONFIG] 模糊检索开关: " + (fuzzySearch ? "开启" : "关闭"));
-          }
+        _ -> {
+          fuzzySearch = cbFuzzy.isSelected();
+          appendLog("[CONFIG] 模糊检索开关: " + (fuzzySearch ? "开启" : "关闭"));
         });
 
     // 注入现代感十足的灰色占位提示词
@@ -213,63 +197,62 @@ public class MainWindow {
 
     // 排序按钮监听
     btnSort.addActionListener(
-        new ActionListener() {
-          @Override
-          public void actionPerformed(ActionEvent e) {
-            HttpDataClient client = new HttpDataClient(MainWindow.this);
-            client.HttpSort(port, searchType, MainWindow.this);
-          }
+        _ -> {
+          HttpDataClient client = new HttpDataClient(MainWindow.this);
+          client.HttpSort(port, searchType, MainWindow.this);
         });
   }
 
   public static void main(String[] args) {
-    try {
-      // 激活现代浅色主题及全局圆角微调
-      FlatIntelliJLaf.setup();
-      UIManager.put("Component.arc", 12);
-      UIManager.put("ComboBox.arc", 12);
-      UIManager.put("Button.arc", 16);
-      UIManager.put("defaultFont", new Font("Microsoft YaHei UI", Font.PLAIN, 14));
+    // 🌟 核心修正：利用 invokeLater 将所有 UI 渲染与窗体显示彻底隔离开，绝不阻塞主线程
+    SwingUtilities.invokeLater(
+        () -> {
+          try {
+            // 1. 激活现代浅色主题
+            FlatIntelliJLaf.setup();
 
-      // --- 🌸 进度条粉蓝渐变核心调配区域 🌟 ---
-      UIManager.put("ProgressBar.arc", 12); // 圆角
-      UIManager.put("ProgressBar.horizontalSize", new Dimension(146, 12)); // 基础高度
+            // 2. 全局通用圆角和字体微调
+            UIManager.put("Component.arc", 12);
+            UIManager.put("ComboBox.arc", 12);
+            UIManager.put("Button.arc", 16);
+            UIManager.put("defaultFont", new Font("Microsoft YaHei UI", Font.PLAIN, 14));
 
-      // 这里的 0, 0, 146, 0 代表从左到右水平方向渐变
-      // Color(255, 155, 233) 是唯美粉，Color(100, 181, 246) 是天空蓝
-      LinearGradientPaint pinkToBlue =
-          new LinearGradientPaint(
-              0f,
-              0f,
-              146f,
-              0f,
-              new float[] {0.0f, 1.0f},
-              new Color[] {new Color(255, 155, 233), new Color(100, 181, 246)});
-      // 将渐变色刷入进度条的前景色中
-      UIManager.put("ProgressBar.foreground", pinkToBlue);
-      // 选填：进度条未走过的空白背景色（浅灰粉，呼应整体色调）
-      UIManager.put("ProgressBar.background", new Color(245, 240, 245));
+            // ===================== 🌸 百分之百不翻车的进度条配置 🌟 =====================
+            UIManager.put("ProgressBar.arc", 12); // 保持圆角
 
-      // 唯美粉粉紫边框色调调配
-      UIManager.put("Button.startBorderColor", new Color(255, 155, 233));
-      UIManager.put("Button.endBorderColor", new Color(255, 155, 233));
-      UIManager.put("Button.hoverBorderColor", new Color(255, 103, 209));
-      UIManager.put("Component.focusColor", new Color(255, 155, 233, 100));
+            // 使用标准 Color 对象注入前景色（樱花粉）
+            UIManager.put("ProgressBar.foreground", new Color(255, 155, 233));
 
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+            // 槽位背景色：淡灰粉底色
+            UIManager.put("ProgressBar.background", new Color(248, 192, 239));
 
-    JFrame frame = new JFrame("数据检索系统");
-    MainWindow window = new MainWindow();
-    if (window.mainPanel == null) {
-      System.out.println("❌ 警告：mainPanel 为 null！请检查 .form 文件绑定或点击 Build -> Rebuild Project");
-    }
-    frame.setContentPane(window.mainPanel);
-    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.pack();
-    frame.setLocationRelativeTo(null); // 让窗口居中显示
-    frame.setVisible(true);
+            // 彻底锁死文字颜色，防止其因为状态改变而变白或变黑导致看不清
+            UIManager.put("ProgressBar.selectionForeground", new Color(62, 89, 123)); // 未覆盖时的文字色
+
+            // 3. 唯美粉粉紫边框色调调配
+            UIManager.put("Button.startBorderColor", new Color(255, 155, 233));
+            UIManager.put("Button.endBorderColor", new Color(255, 155, 233));
+            UIManager.put("Button.hoverBorderColor", new Color(255, 103, 209));
+            UIManager.put("Component.focusColor", new Color(255, 155, 233, 100));
+
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+
+          // 4. 🌟 在安全线程内部实例化窗体，消灭“有时可以，有时不行”的玄学 Bug
+          JFrame frame = new JFrame("数据检索系统");
+          MainWindow window = new MainWindow();
+
+          if (window.mainPanel == null) {
+            System.out.println("❌ 警告：mainPanel 为 null！请检查 .form 文件绑定或点击 Build -> Rebuild Project");
+          }
+
+          frame.setContentPane(window.mainPanel);
+          frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+          frame.pack();
+          frame.setLocationRelativeTo(null); // 让窗口居中显示
+          frame.setVisible(true); // 100% 稳定弹窗！
+        });
   }
 
   /** 【重要升级】线程安全地向 GUI 文本域追加日志，并带自动截断保护 */

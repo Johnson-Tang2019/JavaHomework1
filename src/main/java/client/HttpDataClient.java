@@ -78,15 +78,15 @@ public class HttpDataClient {
       // ===================== 异常处理 =====================
     } catch (SocketTimeoutException e) {
       // 网络超时异常（服务器未启动/网络不通）
-      System.err.println("❌ 错误：网络请求超时，请检查服务器是否启动");
+      System.err.println("[ERROR]错误：网络请求超时，请检查服务器是否启动");
       return null;
     } catch (IOException e) {
       // IO异常（连接失败、文件不存在、服务器异常）
-      System.err.println("❌ 错误：网络请求失败 - " + e.getMessage());
+      System.err.println("[ERROR]错误：网络请求失败 - " + e.getMessage());
       return null;
     } catch (NumberFormatException e) {
       // 数据格式异常（服务器返回的不是整数）
-      System.err.println("❌ 错误：服务器返回的数据不是有效整数 - " + e.getMessage());
+      System.err.println("[ERROR]错误：服务器返回的数据不是有效整数 - " + e.getMessage());
       return null;
 
       // ===================== 资源释放 =====================
@@ -116,7 +116,7 @@ public class HttpDataClient {
    */
   public static String printDataPreview(List<Integer> dataList, int previewCount) {
 
-    String result = "\n📋 数据预览：";
+    String result = "\n[INFO] 数据预览：";
 
     StringBuilder sb = new StringBuilder(result);
 
@@ -162,7 +162,7 @@ public class HttpDataClient {
     double average = (double) sum / dataList.size();
 
     // 输出统计结果
-    mainWindow.appendLog("\n📈 数据统计信息：");
+    mainWindow.appendLog("\n[INFO] 数据统计信息：");
     mainWindow.appendLog("  最大值：" + max);
     mainWindow.appendLog("  最小值：" + min);
     mainWindow.appendLog(String.format("  平均值：%.2f%n", average));
@@ -183,8 +183,8 @@ public class HttpDataClient {
     // 判断数据是否读取成功
     if (dataList != null && !dataList.isEmpty()) {
       // 读取成功：输出提示信息与数据总量
-      mainWindow.appendLog("✅ 进阶版数据采集成功！");
-      mainWindow.appendLog("📊 数据总数：" + dataList.size() + " 条");
+      mainWindow.appendLog("[INFO] 进阶版数据采集成功！");
+      mainWindow.appendLog("[INFO] 数据总数：" + dataList.size() + " 条");
 
       // ===================== 拓展功能 =====================
       // 打印数据预览（前10条 + 后10条）
@@ -196,7 +196,7 @@ public class HttpDataClient {
       testSortingPerformance(dataList, sortType);
     } else {
       // 读取失败：输出错误提示
-      mainWindow.appendLog("\n❌ 数据采集失败，请检查服务器是否启动");
+      mainWindow.appendLog("\n[ERROR] 数据采集失败，请检查服务器是否启动");
     }
   }
 
